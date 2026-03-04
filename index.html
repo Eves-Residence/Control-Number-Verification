@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eves Residences | Verification Portal</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 12px; shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 400px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-verify { background: #007bff; color: white; margin-bottom: 10px; }
+        .btn-scan { background: #343a40; color: white; }
+        #reader { width: 100%; margin-top: 15px; display: none; }
+        #result { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; }
+        .valid { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .invalid { background: #f8d7da; color: #721c24; border: 1px solid #f5c2c7; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Verify Control No.</h2>
+    <input type="text" id="hashInput" placeholder="Enter Hash Code (e.g. A1B2C3...)">
+    <button class="btn-verify" onclick="callApi()">Verify Manually</button>
+    <button class="btn-scan" onclick="toggleScanner()">📷 Scan Barcode</button>
+    
+    <div id="reader"></div>
+    <div id="result"></div>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzbFbeBjIh7U5VVHvyvezoztpX8Voo6w3-5k0HdmZ5xF0xbfB-YwYClgUGKhvMslrWe5w/exec"; // PASTE YOUR GOOGLE SCRIPT URL HERE
+    const scanner = new Html5Qrcode("reader");
+
+    async function callApi(code) {
+        const hash = code || document.getElementById('hashInput').value;
+        const resultDiv = document.getElementById('result');
+        
+        resultDiv.style.display = "block";
+        resultDiv.innerHTML = "Processing...";
+        resultDiv.className = "";
+
+        try {
+            const response = await fetch(`${API_URL}?hash=${hash}`);
+            const data = await response.json();
+
+            if (data.valid) {
+                resultDiv.className = "valid";
+                resultDiv.innerHTML = `<strong>VALID RECORD</strong><br>Tenant: ${data.name}<br>Unit: ${data.unit}<br>Property: ${data.property}`;
+            } else {
+                resultDiv.className = "invalid";
+                resultDiv.innerHTML = "<strong>INVALID</strong><br>No record found.";
+            }
+        } catch (err) {
+            resultDiv.innerHTML = "Error connecting to server.";
+        }
+    }
+
+    function toggleScanner() {
+        const reader = document.getElementById('reader');
+        if (reader.style.display === "block") {
+            scanner.stop();
+            reader.style.display = "none";
+        } else {
+            reader.style.display = "block";
+            scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+                callApi(text);
+                scanner.stop();
+                reader.style.display = "none";
+            });
+        }
+    }
+</script>
+
+</body>
+</html>
