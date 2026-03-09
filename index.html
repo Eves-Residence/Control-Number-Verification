@@ -203,6 +203,7 @@
 <script>
     const API_RESERVATION = "https://script.google.com/macros/s/AKfycbz10noQgGR_TfwdKAUKA_fnJAVtgKZ4Eq9tdKtx8MhDGl-tGytqZjWZ9uZky-isw0IPRQ/exec";
     const API_RENEWAL = "https://script.google.com/macros/s/AKfycbx9-8yCnVZM5nEEIYwBNyIEGl-mClnV84aS5ACw4tMdAT5LnO11mc5BJMCdZ5qGRQIf/exec";
+    const API_INTENT = "https://script.google.com/macros/s/AKfycbzoSxGd8n96lAPU_omzOwh5-RV9iHX86G3hss1uVH_xOSVTNYGVXfg36cy6vJgKOTX1sw/exec";
     
     let html5QrCode = null;
     const input = document.getElementById('hashInput');
@@ -257,24 +258,49 @@
         resultDiv.innerHTML = "<strong>🔍 Searching Systems...</strong>";
 
         try {
+            // Step 1: Check Reservations
             let response = await fetch(`${API_RESERVATION}?hash=${hash}`);
             let data = await response.json();
 
+            // Step 2: Check Renewals if not found
             if (!data.valid) {
+                resultDiv.innerHTML = "<strong>🔍 Checking Renewals...</strong>";
                 response = await fetch(`${API_RENEWAL}?hash=${hash}`);
                 data = await response.json();
             }
 
+            // Step 3: Check Intent System if still not found
+            if (!data.valid) {
+                resultDiv.innerHTML = "<strong>🔍 Checking Intent Records...</strong>";
+                response = await fetch(`${API_INTENT}?hash=${hash}`);
+                data = await response.json();
+            }
+
+            // Final Result Handling
             if (data.valid) {
                 resultDiv.className = "valid";
-                resultDiv.innerHTML = `<strong>✅ VERIFIED</strong><br>Tenant: ${data.name}<br>Unit: ${data.unit}<br>Property: ${data.property}`;
+                resultDiv.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 10px;">
+                        <img src="https://img.icons8.com/color/48/checked--v1.png"/>
+                    </div>
+                    <strong>✅ VERIFIED</strong><br>
+                    <b>Tenant:</b> ${data.name}<br>
+                    <b>Unit:</b> ${data.unit}<br>
+                    <b>Property:</b> ${data.property}
+                `;
             } else {
                 resultDiv.className = "invalid";
-                resultDiv.innerHTML = "<strong>❌ ACCESS DENIED</strong><br>Code not found.";
+                resultDiv.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 10px;">
+                        <img src="https://img.icons8.com/color/48/cancel--v1.png"/>
+                    </div>
+                    <strong>❌ ACCESS DENIED</strong><br>
+                    The code provided was not found in any system.
+                `;
             }
         } catch (err) {
             resultDiv.className = "invalid";
-            resultDiv.innerHTML = "<strong>⚠️ CONNECTION ERROR</strong>";
+            resultDiv.innerHTML = "<strong>⚠️ CONNECTION ERROR</strong><br>Could not reach the server.";
         }
     }
 
@@ -286,25 +312,32 @@
             html5QrCode.stop().then(() => {
                 readerDiv.style.display = "none";
                 btn.innerHTML = "📷 Open Camera";
+                btn.style.background = "var(--dark)";
             });
         } else {
             kb.classList.remove('open');
             readerDiv.style.display = "block";
             btn.innerHTML = "🛑 Stop Camera";
+            btn.style.background = "var(--danger)";
 
             html5QrCode = new Html5Qrcode("reader");
             html5QrCode.start(
                 { facingMode: "environment" }, 
-                { fps: 15, qrbox: { width: 250, height: 150 } }, 
+                { fps: 15, qrbox: { width: 300, height: 120 } }, 
                 (text) => {
                     input.value = text;
                     html5QrCode.stop().then(() => {
                         readerDiv.style.display = "none";
                         btn.innerHTML = "📷 Open Camera";
+                        btn.style.background = "var(--dark)";
                         callApi(text);
                     });
                 }
-            ).catch(err => alert("Camera Error"));
+            ).catch(err => {
+                alert("Camera Access Denied");
+                readerDiv.style.display = "none";
+                btn.innerHTML = "📷 Open Camera";
+            });
         }
     }
 </script>
